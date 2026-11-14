@@ -1,0 +1,31 @@
+[workspace]
+
+[package]
+name = "magnetar-provider-qualcomm"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Qualcomm (QAIRT/QNN: HTP, Adreno GPU, CPU) Provider for the Magnetar inference runtime."
+repository = "https://github.com/astorise/Magnetar-provider-Qualcomm"
+readme = "README.md"
+keywords = ["ai", "inference", "magnetar", "qualcomm"]
+categories = ["science", "hardware-support"]
+rust-version = "1.98"
+
+[features]
+# `mock` exposes the in-memory QNN SDK double (`mock::MockSdk`) to
+# downstream test suites. Unit tests of this crate always have it.
+mock = []
+
+[dependencies]
+# `path` resolves inside a checkout of the parent Magnetar repository;
+# `version` is what `cargo publish` records for crates.io consumers.
+magnetar-core = { version = "1.0.0", path = "../../magnetar-core" }
+magnetar-provider-api = { version = "1.0.0", path = "../../magnetar-provider-api" }
+# Loads the Qualcomm AI Runtime (QNN) backend libraries at run time, from
+# explicitly configured directories only. Nothing is linked at build time,
+# so the crate builds and tests on a machine with no Qualcomm SDK at all.
+libloading = "0.9"
+
+[dev-dependencies]
+tempfile = "3"

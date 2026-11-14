@@ -1,0 +1,33 @@
+name: Qualcomm hardware
+
+# Opt-in only: runs on a self-hosted runner that has a Qualcomm target and
+# the QAIRT runtime installed. Never triggered by pushes or pull requests.
+on:
+  workflow_dispatch:
+    inputs:
+      lib_dir:
+        description: Absolute directory holding the QNN backend libraries
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  hardware:
+    runs-on: [self-hosted, qualcomm-hardware]
+    env:
+      MAGNETAR_QUALCOMM_HARDWARE: "1"
+      MAGNETAR_QUALCOMM_LIB_DIR: ${{ inputs.lib_dir }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: providers/qualcomm
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: astorise/Magnetar
+          path: magnetar-checkout
+      - name: Place this crate inside the Magnetar checkout
+        run: mv providers/qualcomm magnetar-checkout/providers/qualcomm
+      - name: Discovery on real hardware
+        working-directory: magnetar-checkout
+        run: cargo test --manifest-path providers/qualcomm/Cargo.toml --test hardware -- --ignored --nocapture

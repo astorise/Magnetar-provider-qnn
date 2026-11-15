@@ -1,0 +1,105 @@
+name: Run on Qualcomm Device Cloud
+
+# Builds the Android test bundle, connects to an ALREADY RUNNING Qualcomm
+# Device Cloud (QDC) SSH session, runs the tests there and returns the
+# results. A person starts the QDC session (web UI, "SSH only") and passes
+# its address as inputs; nothing here creates or ends sessions. Sessions are
+# time-limited, so dispatch while one is live.
+#
+# Requires the `qdc` environment with the secret QDC_SSH_KEY: the PRIVATE
+# half of a key pair used for nothing else, whose public half was registered
+# in QDC. Restrict that environment to the default branch in the repository
+# settings so no other branch can read the key.
+on:
+  workflow_dispatch:
+    inputs:
+      ssh_host:
+        description: QDC session SSH host
+        required: true
+      ssh_port:
+        description: QDC session SSH port
+        default: "22"
+        required: true
+      ssh_user:
+        description: QDC session SSH user
+        required: true
+      lib_dir:
+        description: Absolute directory on the device holding the QNN libraries
+        required: true
+      collect_device_info:
+        description: "Record device model/build in the uploaded artifact (may be confidential; artifacts of public repos are public)"
+        type: boolean
+        default: false
+      magnetar_ref:
+        description: Magnetar ref to build against
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: run-on-qdc
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: ./.github/workflows/build-qdc.yml
+    with:
+      magnetar_ref: ${{ inputs.magnetar_ref }}
+
+  run:
+    name: run on device
+    needs: build
+    runs-on: ubuntu-latest
+    environment: qdc
+    timeout-minutes: 30
+    steps:
+      - name: Download the bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: qnn-tests-aarch64-linux-android
+          path: bundle
+
+      - name: Install the SSH key
+        env:
+          QDC_SSH_KEY: ${{ secrets.QDC_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$QDC_SSH_KEY" || { echo "::error::secret QDC_SSH_KEY is empty"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$QDC_SSH_KEY" > ~/.ssh/qdc_key
+          chmod 600 ~/.ssh/qdc_key
+
+      - name: Run the bundle on the device
+        id: run
+        working-directory: bundle
+        env:
+          TRANSPORT: ssh
+          SSH_TARGET: ${{ inputs.ssh_user }}@${{ inputs.ssh_host }}
+          SSH_PORT: ${{ inputs.ssh_port }}
+          DEVICE_INFO: ${{ inputs.collect_device_info && '1' || '0' }}
+        run: |
+          chmod +x run-on-device.sh unit-tests hardware-tests
+          SSH_KEY="$HOME/.ssh/qdc_key" ./run-on-device.sh "${{ inputs.lib_dir }}"
+
+      - name: Summarize
+        if: always()
+        working-directory: bundle
+        run: |
+          {
+            echo "### QDC run"
+            for f in results/*/result.json; do echo '```json'; cat "$f"; echo '```'; done
+          } >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Remove the SSH key
+        if: always()
+        run: rm -f ~/.ssh/qdc_key
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qdc-results
+          path: bundle/results/
+          if-no-files-found: warn
+          retention-days: 14

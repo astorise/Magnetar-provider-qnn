@@ -54,3 +54,25 @@ chipset, OS build, SDK version and the logs above.
 - It does not install the SDK libraries.
 - Windows ARM64 devices are not covered yet (`aarch64-pc-windows-msvc` would
   need a Windows build job and a PowerShell runner script).
+
+## Automated runs from GitHub Actions
+
+`.github/workflows/run-on-qdc.yml` builds the bundle and runs it over SSH on
+a QDC session that is already running. You (or anyone dispatching it) start
+the session in QDC ("SSH only") and pass its host, port, user and the
+device-side library directory as inputs.
+
+One-time setup, in this repository's settings:
+
+1. Create an environment named `qdc`, limited to the default branch.
+2. Add the secret `QDC_SSH_KEY` to it: the private key of a pair created
+   only for QDC (`ssh-keygen -t ed25519 -f qdc_key`); register `qdc_key.pub`
+   in QDC. Never put this key in chat, in the repository, or in a secret of a
+   repository that runs untrusted pull requests.
+
+Caveats: the host key is trusted on first use (sessions are short-lived), the
+session endpoint must be reachable from GitHub-hosted runners (not verified;
+if QDC restricts source IPs this needs a self-hosted runner), and results are
+uploaded as the `qdc-results` artifact. Device model/build properties are
+recorded only when `collect_device_info` is set, because QDC treats device
+information as confidential and artifacts of public repositories are public.

@@ -8,6 +8,11 @@ name: Build for Qualcomm Device Cloud
 # The crate builds inside a Magnetar checkout (path dependencies), so this
 # workflow checks Magnetar out and places this repository at providers/qnn.
 on:
+  workflow_call:
+    inputs:
+      magnetar_ref:
+        type: string
+        default: main
   workflow_dispatch:
     inputs:
       magnetar_ref:

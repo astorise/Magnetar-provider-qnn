@@ -1,0 +1,121 @@
+name: Build for Qualcomm Device Cloud
+
+# Cross-compiles this crate's test binaries for 64-bit Android (Snapdragon)
+# on a standard GitHub runner, so device time on Qualcomm Device Cloud (QDC)
+# is spent only running them. Produces a downloadable bundle; nothing here
+# touches a device, and the bundle contains no Qualcomm SDK files.
+#
+# The crate builds inside a Magnetar checkout (path dependencies), so this
+# workflow checks Magnetar out and places this repository at providers/qnn.
+on:
+  workflow_dispatch:
+    inputs:
+      magnetar_ref:
+        description: Magnetar branch, tag or SHA to build against
+        default: main
+        required: true
+  pull_request:
+    paths:
+      - src/**
+      - tests/**
+      - Cargo.toml
+      - Cargo.lock
+      - scripts/**
+      - .github/workflows/build-qdc.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-qdc-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TARGET: aarch64-linux-android
+  # Oldest Android API level the binaries are linked for.
+  ANDROID_API: "24"
+
+jobs:
+  build:
+    name: build (aarch64-linux-android)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Magnetar
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: astorise/Magnetar
+          ref: ${{ inputs.magnetar_ref || 'main' }}
+          path: magnetar
+
+      - name: Check out this repository at providers/qnn
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: magnetar/providers/qnn
+
+      - name: Install the Rust toolchain Magnetar pins, plus the Android target
+        working-directory: magnetar
+        run: |
+          rustup show
+          rustup target add "$TARGET"
+
+      - name: Configure the Android NDK linker
+        run: |
+          NDK="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
+          test -d "$NDK" || { echo "::error::no Android NDK on this runner"; exit 1; }
+          BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -x "$BIN/${TARGET}${ANDROID_API}-clang" || { echo "::error::NDK has no ${TARGET}${ANDROID_API}-clang"; exit 1; }
+          {
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$BIN/${TARGET}${ANDROID_API}-clang"
+            echo "CC_aarch64_linux_android=$BIN/${TARGET}${ANDROID_API}-clang"
+            echo "AR_aarch64_linux_android=$BIN/llvm-ar"
+          } >> "$GITHUB_ENV"
+
+      - name: Cache Cargo data
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        with:
+          workspaces: magnetar/providers/qnn
+
+      - name: Build the test binaries (not run: they target a phone)
+        working-directory: magnetar
+        run: |
+          cargo test --locked --no-run --target "$TARGET" \
+            --manifest-path providers/qnn/Cargo.toml \
+            --lib --test hardware --message-format=json \
+            > "$RUNNER_TEMP/cargo.json"
+          jq -r 'select(.reason=="compiler-artifact" and .executable!=null and .profile.test==true)
+                 | [.target.name, .target.kind[0], .executable] | @tsv' \
+            "$RUNNER_TEMP/cargo.json" | tee "$RUNNER_TEMP/executables.tsv"
+
+      - name: Assemble the bundle
+        run: |
+          set -euo pipefail
+          B=bundle
+          mkdir -p "$B"
+          # `--lib` unit tests and the `hardware` integration test, under
+          # stable names the run script knows.
+          while IFS=$'\t' read -r name kind exe; do
+            case "$kind" in
+              lib) cp "$exe" "$B/unit-tests" ;;
+              test) cp "$exe" "$B/$name-tests" ;;
+            esac
+          done < "$RUNNER_TEMP/executables.tsv"
+          test -f "$B/unit-tests" && test -f "$B/hardware-tests"
+          cp magnetar/providers/qnn/scripts/run-on-device.sh "$B/"
+          chmod +x "$B/run-on-device.sh"
+          {
+            echo "target=$TARGET"
+            echo "android_api=$ANDROID_API"
+            echo "provider_sha=$(git -C magnetar/providers/qnn rev-parse HEAD)"
+            echo "magnetar_sha=$(git -C magnetar rev-parse HEAD)"
+            echo "rustc=$(rustc --version)"
+          } > "$B/MANIFEST.txt"
+          (cd "$B" && sha256sum unit-tests hardware-tests run-on-device.sh > SHA256SUMS)
+          cat "$B/MANIFEST.txt"
+
+      - name: Upload the bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: qnn-tests-${{ env.TARGET }}
+          path: bundle/
+          if-no-files-found: error
+          retention-days: 14

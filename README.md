@@ -90,6 +90,7 @@ Without the opt-in these tests print `SKIPPED`; they never pass by inference.
 - `docs/sdk-setup.md` -- SDK setup, header verification, licensing caveats.
 - `docs/security.md` -- trusted loading, diagnostics redaction.
 - `docs/performance.md` -- benchmark method (no numbers yet).
+- `docs/qdc.md` -- cross-build on GitHub, run on Qualcomm Device Cloud.
 
 ## Remaining roadmap
 

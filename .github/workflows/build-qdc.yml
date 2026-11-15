@@ -80,7 +80,7 @@ jobs:
         with:
           workspaces: magnetar/providers/qnn
 
-      - name: Build the test binaries (not run: they target a phone)
+      - name: "Build the test binaries (they target a phone, so they are not run)"
         working-directory: magnetar
         run: |
           cargo test --locked --no-run --target "$TARGET" \

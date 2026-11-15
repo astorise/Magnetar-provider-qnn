@@ -4,7 +4,7 @@
 Magnetar Runtime (vendor-neutral)
   | ProviderRegistry: Provider::devices(), health_report()
   v
-QualcommProvider  (src/provider.rs)
+QnnProvider  (src/provider.rs)
   |-- QnnSdk trait (src/sdk.rs)   <- MockSdk in tests
   |     `-- DynamicQnnSdk: LoadPolicy -> dlopen -> QnnInterface_getProviders
   |-- ffi.rs  (the only `unsafe` in the crate)
@@ -32,7 +32,7 @@ library boundary. When the ABI gains execution payloads, a thin
 
 ## Lifecycle
 
-1. `QualcommProvider::new()` reads `MAGNETAR_QUALCOMM_LIB_DIR`, probes every
+1. `QnnProvider::new()` reads `MAGNETAR_QNN_LIB_DIR`, probes every
    engine once, stores a `BackendStatus` each. It cannot fail.
 2. `devices()` returns Devices for discovered backends only.
 3. `health()`: `Unavailable` (nothing found) or `Degraded` (found, but no

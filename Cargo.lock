@@ -286,7 +286,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "magnetar-provider-qualcomm"
+name = "magnetar-provider-qnn"
 version = "0.1.0"
 dependencies = [
  "libloading",

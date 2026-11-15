@@ -1,4 +1,4 @@
-//! `QualcommProvider`: one logical Provider, one Magnetar Device per QNN
+//! `QnnProvider`: one logical Provider, one Magnetar Device per QNN
 //! backend (HTP, GPU, CPU) that is actually present.
 //!
 //! # Status: discovery only
@@ -25,20 +25,20 @@ use magnetar_provider_api::{Provider, ProviderError, ProviderMetadata, ProviderR
 
 use crate::{
     config::LoadPolicy,
-    device::qualcomm_device_descriptor,
+    device::qnn_device_descriptor,
     engine::QnnEngine,
     sdk::{BackendProbe, DynamicQnnSdk, ProbeFailure, QnnSdk},
 };
 
-pub const QUALCOMM_PROVIDER_NAME: &str = "qualcomm";
-const QUALCOMM_PROVIDER_VERSION: &str = env!("CARGO_PKG_VERSION");
-const QUALCOMM_PROVIDER_VENDOR: &str = "Qualcomm (QAIRT/QNN)";
+pub const QNN_PROVIDER_NAME: &str = "qnn";
+const QNN_PROVIDER_VERSION: &str = env!("CARGO_PKG_VERSION");
+const QNN_PROVIDER_VENDOR: &str = "Qualcomm (QAIRT/QNN)";
 
-pub fn qualcomm_provider_metadata() -> ProviderMetadata {
+pub fn qnn_provider_metadata() -> ProviderMetadata {
     ProviderMetadata::new(
-        QUALCOMM_PROVIDER_NAME,
-        QUALCOMM_PROVIDER_VERSION,
-        QUALCOMM_PROVIDER_VENDOR,
+        QNN_PROVIDER_NAME,
+        QNN_PROVIDER_VERSION,
+        QNN_PROVIDER_VENDOR,
         "Qualcomm QNN backend discovery (Hexagon HTP, Adreno GPU, CPU) -- no compute \
          Kernels implemented yet (see this crate's own README)",
     )
@@ -75,13 +75,13 @@ pub struct BackendDiagnostic {
     pub message: String,
 }
 
-pub struct QualcommProvider {
+pub struct QnnProvider {
     metadata: ProviderMetadata,
     backends: Vec<BackendStatus>,
 }
 
-impl QualcommProvider {
-    /// Probes backends from the directories in `MAGNETAR_QUALCOMM_LIB_DIR`.
+impl QnnProvider {
+    /// Probes backends from the directories in `MAGNETAR_QNN_LIB_DIR`.
     pub fn new() -> Self {
         Self::with_policy(LoadPolicy::from_env())
     }
@@ -96,15 +96,14 @@ impl QualcommProvider {
             .into_iter()
             .map(|engine| match sdk.probe(engine) {
                 Ok(probe) => {
-                    let device =
-                        Arc::new(qualcomm_device_descriptor(&probe, QUALCOMM_PROVIDER_NAME));
+                    let device = Arc::new(qnn_device_descriptor(&probe, QNN_PROVIDER_NAME));
                     BackendStatus::Discovered { probe, device }
                 }
                 Err(failure) => BackendStatus::Unavailable { engine, failure },
             })
             .collect();
         Self {
-            metadata: qualcomm_provider_metadata(),
+            metadata: qnn_provider_metadata(),
             backends,
         }
     }
@@ -142,13 +141,13 @@ impl QualcommProvider {
     }
 }
 
-impl Default for QualcommProvider {
+impl Default for QnnProvider {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Provider for QualcommProvider {
+impl Provider for QnnProvider {
     fn metadata(&self) -> ProviderMetadata {
         self.metadata.clone()
     }
@@ -169,7 +168,7 @@ impl Provider for QualcommProvider {
 
     fn health_report(&self) -> ProviderHealthReport {
         let mut report =
-            ProviderHealthReport::new(ProviderBinding::new(QUALCOMM_PROVIDER_NAME), self.health());
+            ProviderHealthReport::new(ProviderBinding::new(QNN_PROVIDER_NAME), self.health());
         report.diagnostics = self
             .diagnostics()
             .into_iter()
@@ -180,7 +179,7 @@ impl Provider for QualcommProvider {
                     HealthState::Unavailable
                 };
                 HealthDiagnostic::new(HealthScope::Device, state)
-                    .with_code(format!("qualcomm.{}.{}", d.engine.as_str(), d.code))
+                    .with_code(format!("qnn.{}.{}", d.engine.as_str(), d.code))
                     .with_message(d.message)
             })
             .collect();
@@ -209,7 +208,7 @@ mod tests {
 
     #[test]
     fn absent_sdk_is_unavailable_with_no_devices() {
-        let provider = QualcommProvider::with_sdk(&MockSdk::absent());
+        let provider = QnnProvider::with_sdk(&MockSdk::absent());
         assert!(!provider.is_available());
         assert_eq!(provider.health(), ProviderHealth::Unavailable);
         assert!(provider.devices().is_empty());
@@ -223,20 +222,20 @@ mod tests {
         let sdk = MockSdk::absent()
             .with_backend(QnnEngine::Htp)
             .with_backend(QnnEngine::Gpu);
-        let provider = QualcommProvider::with_sdk(&sdk);
+        let provider = QnnProvider::with_sdk(&sdk);
         assert_eq!(provider.health(), ProviderHealth::Degraded);
         let devices = provider.devices();
         let mut ids: Vec<_> = devices.iter().map(|d| d.id().to_string()).collect();
         ids.sort();
-        assert_eq!(ids, ["qualcomm:gpu:0", "qualcomm:htp:0"]);
+        assert_eq!(ids, ["qnn:gpu:0", "qnn:htp:0"]);
         let htp = devices
             .iter()
-            .find(|d| d.id() == &DeviceId::new("qualcomm:htp:0"))
+            .find(|d| d.id() == &DeviceId::new("qnn:htp:0"))
             .expect("htp device");
         assert_eq!(htp.device_type(), DeviceType::Npu);
         let gpu = devices
             .iter()
-            .find(|d| d.id() == &DeviceId::new("qualcomm:gpu:0"))
+            .find(|d| d.id() == &DeviceId::new("qnn:gpu:0"))
             .expect("gpu device");
         assert_eq!(gpu.device_type(), DeviceType::Gpu);
         assert_ne!(htp.metadata().architecture, gpu.metadata().architecture);
@@ -245,7 +244,7 @@ mod tests {
     #[test]
     fn devices_do_not_claim_unproven_capabilities() {
         let sdk = MockSdk::absent().with_backend(QnnEngine::Htp);
-        let provider = QualcommProvider::with_sdk(&sdk);
+        let provider = QnnProvider::with_sdk(&sdk);
         let devices = provider.devices();
         let metadata = devices[0].metadata();
         assert!(metadata.dtype_support.is_empty());
@@ -262,16 +261,16 @@ mod tests {
         let sdk = MockSdk::absent()
             .with_backend(QnnEngine::Htp)
             .with_backend(QnnEngine::Cpu);
-        let provider = QualcommProvider::with_sdk(&sdk);
+        let provider = QnnProvider::with_sdk(&sdk);
         let mut registry = ProviderRegistry::default();
         registry
-            .register_devices(QUALCOMM_PROVIDER_NAME, provider.devices())
+            .register_devices(QNN_PROVIDER_NAME, provider.devices())
             .expect("registration");
         assert_eq!(registry.devices().count(), 2);
         // Registering the same Devices again is a duplicate, not a no-op.
         assert!(
             registry
-                .register_devices(QUALCOMM_PROVIDER_NAME, provider.devices())
+                .register_devices(QNN_PROVIDER_NAME, provider.devices())
                 .is_err()
         );
     }
@@ -288,7 +287,7 @@ mod tests {
                 },
             },
         );
-        let provider = QualcommProvider::with_sdk(&sdk);
+        let provider = QnnProvider::with_sdk(&sdk);
         let diagnostics = provider.diagnostics();
         let htp = diagnostics
             .iter()
@@ -301,14 +300,14 @@ mod tests {
         let report = provider.health_report();
         assert_eq!(report.diagnostics.len(), QnnEngine::ALL.len());
         assert!(report.diagnostics.iter().any(|d| {
-            d.code.as_deref() == Some("qualcomm.htp.incompatible-core-api")
+            d.code.as_deref() == Some("qnn.htp.incompatible-core-api")
                 && d.state == HealthState::Unavailable
         }));
     }
 
     #[test]
     fn unconfigured_dynamic_sdk_is_unavailable() {
-        let provider = QualcommProvider::with_policy(LoadPolicy::default());
+        let provider = QnnProvider::with_policy(LoadPolicy::default());
         assert_eq!(provider.health(), ProviderHealth::Unavailable);
         assert!(
             provider
@@ -320,8 +319,8 @@ mod tests {
 
     #[test]
     fn metadata_is_well_formed() {
-        let metadata = QualcommProvider::with_sdk(&MockSdk::absent()).metadata();
-        assert_eq!(metadata.name, QUALCOMM_PROVIDER_NAME);
+        let metadata = QnnProvider::with_sdk(&MockSdk::absent()).metadata();
+        assert_eq!(metadata.name, QNN_PROVIDER_NAME);
         assert!(!metadata.description.is_empty());
         assert!(metadata.compute_operation_schema_support.is_empty());
     }

@@ -1,6 +1,6 @@
 name: Release Publication
 
-# Publishes `magnetar-provider-qualcomm` to crates.io.
+# Publishes `magnetar-provider-qnn` to crates.io.
 #
 # `dry-run-publish` needs no credential and runs on every trigger.
 # `real-publish` only runs on a manual `workflow_dispatch` (never off a tag
@@ -29,30 +29,30 @@ jobs:
     steps:
       # The crate depends on `magnetar-core` and `magnetar-provider-api` through relative paths
       # (`../../magnetar-core`, `../../magnetar-provider-api`), so it is only buildable inside a checkout of
-      # the parent repository with this repository placed at `providers/qualcomm`.
+      # the parent repository with this repository placed at `providers/qnn`.
       - name: Checkout parent Magnetar repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: astorise/Magnetar
           path: Magnetar
-      - name: Checkout this crate at providers/qualcomm
+      - name: Checkout this crate at providers/qnn
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          path: Magnetar/providers/qualcomm
+          path: Magnetar/providers/qnn
       - name: Install pinned Rust toolchain
-        working-directory: Magnetar/providers/qualcomm
+        working-directory: Magnetar/providers/qnn
         run: rustup show
       - name: Cache Cargo data
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
-          workspaces: Magnetar/providers/qualcomm
+          workspaces: Magnetar/providers/qnn
       - name: Check tag matches the crate version
         if: startsWith(github.ref, 'refs/tags/')
-        working-directory: Magnetar/providers/qualcomm
+        working-directory: Magnetar/providers/qnn
         run: |
           version="$(cargo metadata --locked --no-deps --format-version=1 | jq -r '.packages[0].version')"
           if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
-            echo "::error::tag ${GITHUB_REF_NAME} does not match magnetar-provider-qualcomm version $version" >&2
+            echo "::error::tag ${GITHUB_REF_NAME} does not match magnetar-provider-qnn version $version" >&2
             exit 1
           fi
       # A full `cargo publish --dry-run` resolves every dependency from
@@ -61,7 +61,7 @@ jobs:
       # (metadata, `version` + `path` dependencies) and the packaged file set;
       # the build verification happens in `real-publish`'s `cargo publish`.
       - name: cargo package --list (no credential required)
-        working-directory: Magnetar/providers/qualcomm
+        working-directory: Magnetar/providers/qnn
         run: cargo package --locked --list
 
   real-publish:
@@ -73,30 +73,30 @@ jobs:
     steps:
       # The crate depends on `magnetar-core` and `magnetar-provider-api` through relative paths
       # (`../../magnetar-core`, `../../magnetar-provider-api`), so it is only buildable inside a checkout of
-      # the parent repository with this repository placed at `providers/qualcomm`.
+      # the parent repository with this repository placed at `providers/qnn`.
       - name: Checkout parent Magnetar repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: astorise/Magnetar
           path: Magnetar
-      - name: Checkout this crate at providers/qualcomm
+      - name: Checkout this crate at providers/qnn
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          path: Magnetar/providers/qualcomm
+          path: Magnetar/providers/qnn
       - name: Install pinned Rust toolchain
-        working-directory: Magnetar/providers/qualcomm
+        working-directory: Magnetar/providers/qnn
         run: rustup show
       - name: Cache Cargo data
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
-          workspaces: Magnetar/providers/qualcomm
+          workspaces: Magnetar/providers/qnn
       - name: Check tag matches the crate version
         if: startsWith(github.ref, 'refs/tags/')
-        working-directory: Magnetar/providers/qualcomm
+        working-directory: Magnetar/providers/qnn
         run: |
           version="$(cargo metadata --locked --no-deps --format-version=1 | jq -r '.packages[0].version')"
           if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
-            echo "::error::tag ${GITHUB_REF_NAME} does not match magnetar-provider-qualcomm version $version" >&2
+            echo "::error::tag ${GITHUB_REF_NAME} does not match magnetar-provider-qnn version $version" >&2
             exit 1
           fi
       # `cargo publish` resolves the dependencies below from crates.io.
@@ -104,8 +104,8 @@ jobs:
       - name: Check upstream crates are published
         run: |
           for crate in magnetar-core magnetar-provider-api; do
-            if ! curl -fsS -A "Magnetar-provider-Qualcomm-release" "https://crates.io/api/v1/crates/$crate" > /dev/null; then
-              echo "::error::$crate is not published on crates.io yet; publish it before magnetar-provider-qualcomm" >&2
+            if ! curl -fsS -A "Magnetar-provider-qnn-release" "https://crates.io/api/v1/crates/$crate" > /dev/null; then
+              echo "::error::$crate is not published on crates.io yet; publish it before magnetar-provider-qnn" >&2
               exit 1
             fi
           done
@@ -118,7 +118,7 @@ jobs:
             exit 1
           fi
       - name: cargo publish (real)
-        working-directory: Magnetar/providers/qualcomm
+        working-directory: Magnetar/providers/qnn
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish --locked

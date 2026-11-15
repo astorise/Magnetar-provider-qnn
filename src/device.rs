@@ -13,18 +13,18 @@ use magnetar_core::{
 
 use crate::{engine::QnnEngine, sdk::BackendProbe};
 
-/// Stable Device identifier, e.g. `qualcomm:htp:0`. One Device per engine:
+/// Stable Device identifier, e.g. `qnn:htp:0`. One Device per engine:
 /// the QNN interface query does not enumerate physical devices, so the
 /// ordinal is always `0` until a device query is verified against an SDK.
-pub fn qualcomm_device_id(engine: QnnEngine, ordinal: u32) -> DeviceId {
-    DeviceId::new(format!("qualcomm:{}:{ordinal}", engine.as_str()))
+pub fn qnn_device_id(engine: QnnEngine, ordinal: u32) -> DeviceId {
+    DeviceId::new(format!("qnn:{}:{ordinal}", engine.as_str()))
 }
 
 /// Builds the Device a successfully probed backend is advertised as.
-pub fn qualcomm_device_descriptor(probe: &BackendProbe, provider_name: &str) -> DeviceDescriptor {
+pub fn qnn_device_descriptor(probe: &BackendProbe, provider_name: &str) -> DeviceDescriptor {
     let engine = probe.engine;
     let mut metadata = DeviceMetadata::new(
-        qualcomm_device_id(engine, 0),
+        qnn_device_id(engine, 0),
         format!("{} (QNN {})", engine.display_name(), probe.provider_name),
         engine.device_type(),
         provider_name,

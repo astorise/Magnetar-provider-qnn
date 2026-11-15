@@ -1,4 +1,4 @@
-# cargo-deny policy for the Qualcomm Provider submodule.
+# cargo-deny policy for the QNN Provider submodule.
 #
 # The root Magnetar repository's own `deny.toml`/`quality.yml` `cargo-deny`
 # job deliberately never sees this crate: it checks out without submodules
@@ -8,7 +8,7 @@
 # -- this Provider's one new dependency -- therefore never enters any
 # `cargo deny` graph until this file exists, mirroring
 # `providers/rocm/deny.toml`'s own precedent. Run locally with:
-#   cargo deny --manifest-path providers/qualcomm/Cargo.toml check
+#   cargo deny --manifest-path providers/qnn/Cargo.toml check
 # CI: `.github/workflows/quality.yml`'s `provider-integration` job.
 
 [advisories]

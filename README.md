@@ -1,8 +1,8 @@
-# magnetar-provider-qualcomm
+# magnetar-provider-qnn
 
 An external Qualcomm execution Provider for the
 [Magnetar](https://github.com/astorise/Magnetar) local AI Runtime, built on
-the Qualcomm AI Runtime (QAIRT / QNN). One logical `QualcommProvider`
+the Qualcomm AI Runtime (QAIRT / QNN). One logical `QnnProvider`
 exposes one Magnetar `Device` per QNN backend that is actually present:
 Hexagon HTP (NPU), Adreno GPU and Qualcomm CPU.
 
@@ -12,7 +12,7 @@ Hexagon HTP (NPU), Adreno GPU and Qualcomm CPU.
 | --- | --- |
 | Trusted-path, run-time loading of QNN backend libraries | implemented, tested |
 | Per-backend discovery (`QnnInterface_getProviders`), version gate | implemented, tested against a locally compiled fake library and a mock |
-| One Device per backend (`qualcomm:htp:0`, `qualcomm:gpu:0`, `qualcomm:cpu:0`) | implemented, tested |
+| One Device per backend (`qnn:htp:0`, `qnn:gpu:0`, `qnn:cpu:0`) | implemented, tested |
 | Structured, redacted per-backend diagnostics and health | implemented, tested |
 | Kernels, graph lowering, tensor movement, `ProviderExecutionApi` | **not implemented** |
 | Context cache, quantization, LLM path | **not implemented** |
@@ -44,18 +44,18 @@ The Provider is a built-in Magnetar Provider, like `providers/cuda` and
 functions this Provider needs (see `docs/architecture.md`).
 
 ```rust
-use magnetar_provider_qualcomm::QualcommProvider;
+use magnetar_provider_qnn::QnnProvider;
 use magnetar_provider_api::Provider;
 
-// Reads trusted directories from MAGNETAR_QUALCOMM_LIB_DIR.
-let provider = QualcommProvider::new();
+// Reads trusted directories from MAGNETAR_QNN_LIB_DIR.
+let provider = QnnProvider::new();
 for d in provider.diagnostics() {
     println!("{:?}: {} - {}", d.engine, d.code, d.message);
 }
 let devices = provider.devices();
 ```
 
-`MAGNETAR_QUALCOMM_LIB_DIR` is a `PATH`-style list of absolute directories
+`MAGNETAR_QNN_LIB_DIR` is a `PATH`-style list of absolute directories
 containing `libQnnHtp.so` / `libQnnGpu.so` / `libQnnCpu.so` (`Qnn*.dll` on
 Windows). Relative, missing or group/world-writable directories are rejected.
 No other location is searched.
@@ -63,10 +63,10 @@ No other location is searched.
 ## Test
 
 ```bash
-# From a Magnetar checkout with this repository at providers/qualcomm
-cargo fmt --manifest-path providers/qualcomm/Cargo.toml -- --check
-cargo clippy --locked --manifest-path providers/qualcomm/Cargo.toml --all-targets -- -D warnings
-cargo test --locked --manifest-path providers/qualcomm/Cargo.toml
+# From a Magnetar checkout with this repository at providers/qnn
+cargo fmt --manifest-path providers/qnn/Cargo.toml -- --check
+cargo clippy --locked --manifest-path providers/qnn/Cargo.toml --all-targets -- -D warnings
+cargo test --locked --manifest-path providers/qnn/Cargo.toml
 ```
 
 No Qualcomm SDK or hardware is needed. `tests/fake_sdk.rs` compiles a tiny C
@@ -76,7 +76,7 @@ real `dlopen` path and each failure mapping.
 Hardware validation is opt-in and separate:
 
 ```bash
-MAGNETAR_QUALCOMM_HARDWARE=1 MAGNETAR_QUALCOMM_LIB_DIR=/path/to/qairt/lib \
+MAGNETAR_QNN_HARDWARE=1 MAGNETAR_QNN_LIB_DIR=/path/to/qairt/lib \
   cargo test --test hardware -- --ignored
 ```
 
@@ -103,7 +103,7 @@ Each is blocked on hardware access and a QAIRT SDK, and none is claimed.
 `.github/workflows/ci.yml` calls Magnetar's shared module workflow
 (`submodule-ci.yml`): formatting, Clippy with warnings denied, tests with the
 committed `Cargo.lock`, `cargo-deny`. The crate is built inside a Magnetar
-checkout at `providers/qualcomm`. `.github/workflows/hardware-qualcomm.yml`
+checkout at `providers/qnn`. `.github/workflows/hardware-qnn.yml`
 is manual and runs only on a runner labelled `qualcomm-hardware`.
 
 ## License

@@ -1,14 +1,14 @@
 [workspace]
 
 [package]
-name = "magnetar-provider-qualcomm"
+name = "magnetar-provider-qnn"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
 description = "Qualcomm (QAIRT/QNN: HTP, Adreno GPU, CPU) Provider for the Magnetar inference runtime."
-repository = "https://github.com/astorise/Magnetar-provider-Qualcomm"
+repository = "https://github.com/astorise/Magnetar-provider-qnn"
 readme = "README.md"
-keywords = ["ai", "inference", "magnetar", "qualcomm"]
+keywords = ["ai", "inference", "magnetar", "qnn"]
 categories = ["science", "hardware-support"]
 rust-version = "1.98"
 

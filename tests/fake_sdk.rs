@@ -6,8 +6,8 @@
 
 use std::{path::Path, process::Command};
 
-use magnetar_provider_qualcomm::{
-    DynamicQnnSdk, LoadPolicy, ProbeFailure, QnnEngine, QnnSdk, QualcommProvider,
+use magnetar_provider_qnn::{
+    DynamicQnnSdk, LoadPolicy, ProbeFailure, QnnEngine, QnnProvider, QnnSdk,
 };
 
 const PREAMBLE: &str = r#"
@@ -93,10 +93,10 @@ fn provider_exposes_only_the_engine_that_loaded() {
     use magnetar_provider_api::Provider;
     let dir = fake_lib!(&good(2));
     let provider =
-        QualcommProvider::with_policy(LoadPolicy::with_library_dirs([dir.path().to_path_buf()]));
+        QnnProvider::with_policy(LoadPolicy::with_library_dirs([dir.path().to_path_buf()]));
     let devices = provider.devices();
     assert_eq!(devices.len(), 1);
-    assert_eq!(devices[0].id().as_str(), "qualcomm:htp:0");
+    assert_eq!(devices[0].id().as_str(), "qnn:htp:0");
 }
 
 #[test]

@@ -10,7 +10,7 @@ use std::{
 
 /// Environment variable listing trusted QNN library directories, separated
 /// like `PATH` (`:` on Unix, `;` on Windows).
-pub const LIBRARY_DIR_ENV: &str = "MAGNETAR_QUALCOMM_LIB_DIR";
+pub const LIBRARY_DIR_ENV: &str = "MAGNETAR_QNN_LIB_DIR";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PolicyViolation {

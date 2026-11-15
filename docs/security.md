@@ -3,7 +3,7 @@
 - Backend libraries are trusted native code running in the Runtime process,
   not sandboxed plugins. Loading one executes its initializers.
 - Libraries are loaded only by full path from directories listed in
-  `MAGNETAR_QUALCOMM_LIB_DIR`. No `PATH`/`LD_LIBRARY_PATH`/working-directory
+  `MAGNETAR_QNN_LIB_DIR`. No `PATH`/`LD_LIBRARY_PATH`/working-directory
   search. Directories must be absolute, existing, and (Unix) not
   group/world-writable. Unset means nothing is loaded.
 - Libraries are never unloaded (`NeverUnload`).

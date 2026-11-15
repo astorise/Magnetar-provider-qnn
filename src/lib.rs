@@ -17,11 +17,10 @@ mod sdk;
 pub mod mock;
 
 pub use config::{LIBRARY_DIR_ENV, LoadPolicy, PolicyViolation};
-pub use device::{qualcomm_device_descriptor, qualcomm_device_id};
+pub use device::{qnn_device_descriptor, qnn_device_id};
 pub use engine::QnnEngine;
 pub use provider::{
-    BackendDiagnostic, BackendStatus, QUALCOMM_PROVIDER_NAME, QualcommProvider,
-    qualcomm_provider_metadata,
+    BackendDiagnostic, BackendStatus, QNN_PROVIDER_NAME, QnnProvider, qnn_provider_metadata,
 };
 pub use sdk::{
     BackendProbe, DynamicQnnSdk, ProbeFailure, QnnSdk, QnnVersion, SUPPORTED_CORE_API_MAJOR,

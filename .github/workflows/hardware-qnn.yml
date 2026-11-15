@@ -16,18 +16,18 @@ jobs:
   hardware:
     runs-on: [self-hosted, qualcomm-hardware]
     env:
-      MAGNETAR_QUALCOMM_HARDWARE: "1"
-      MAGNETAR_QUALCOMM_LIB_DIR: ${{ inputs.lib_dir }}
+      MAGNETAR_QNN_HARDWARE: "1"
+      MAGNETAR_QNN_LIB_DIR: ${{ inputs.lib_dir }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          path: providers/qualcomm
+          path: providers/qnn
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           repository: astorise/Magnetar
           path: magnetar-checkout
       - name: Place this crate inside the Magnetar checkout
-        run: mv providers/qualcomm magnetar-checkout/providers/qualcomm
+        run: mv providers/qnn magnetar-checkout/providers/qnn
       - name: Discovery on real hardware
         working-directory: magnetar-checkout
-        run: cargo test --manifest-path providers/qualcomm/Cargo.toml --test hardware -- --ignored --nocapture
+        run: cargo test --manifest-path providers/qnn/Cargo.toml --test hardware -- --ignored --nocapture

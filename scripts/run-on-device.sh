@@ -5,7 +5,9 @@
 #
 #   ./run-on-device.sh <device-lib-dir> [adb-serial]
 #
-# Transport (default adb). For an SSH session (e.g. Qualcomm Device Cloud):
+# Transport (default adb). TRANSPORT=local runs the bundle directly on THIS
+# machine, for a runner that lives on the Android device itself (Termux or
+# similar); it must be an Android/bionic aarch64 environment. For an SSH session (e.g. Qualcomm Device Cloud):
 #   TRANSPORT=ssh SSH_TARGET=user@host SSH_PORT=22 SSH_KEY=~/.ssh/key \
 #     ./run-on-device.sh <device-lib-dir>
 # Host keys are trusted on first use and never stored (sessions are
@@ -27,18 +29,25 @@ LIB_DIR="${1:?usage: $0 <device-lib-dir> [adb-serial]}"
 SERIAL="${2:-}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TRANSPORT="${TRANSPORT:-adb}"
-REMOTE="${REMOTE_DIR:-/data/local/tmp/magnetar-qnn}"
+REMOTE="${REMOTE_DIR:-}"
 
 case "$LIB_DIR" in /*) ;; *) echo "device lib dir must be absolute" >&2; exit 2 ;; esac
 
 case "$TRANSPORT" in
   adb)
+    REMOTE="${REMOTE:-/data/local/tmp/magnetar-qnn}"
     command -v adb >/dev/null || { echo "adb not found" >&2; exit 2; }
     adb_() { if [ -n "$SERIAL" ]; then adb -s "$SERIAL" "$@"; else adb "$@"; fi; }
     dev_shell() { adb_ shell "$1"; }
     dev_push() { adb_ push "$@" >/dev/null; } # files..., remote dir
     ;;
+  local)
+    REMOTE="${REMOTE:-${TMPDIR:-/tmp}/magnetar-qnn}"
+    dev_shell() { sh -c "$1"; }
+    dev_push() { local dest="${*: -1}"; mkdir -p "$dest"; cp "${@:1:$#-1}" "$dest/"; }
+    ;;
   ssh)
+    REMOTE="${REMOTE:-/data/local/tmp/magnetar-qnn}"
     : "${SSH_TARGET:?SSH_TARGET (user@host) is required}"
     SSH_OPTS=(-p "${SSH_PORT:-22}" -o BatchMode=yes -o StrictHostKeyChecking=accept-new
               -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=30)

@@ -76,3 +76,25 @@ if QDC restricts source IPs this needs a self-hosted runner), and results are
 uploaded as the `qdc-results` artifact. Device model/build properties are
 recorded only when `collect_device_info` is set, because QDC treats device
 information as confidential and artifacts of public repositories are public.
+
+## Self-hosted runner (`android-qualcomm`)
+
+`.github/workflows/hardware-qnn.yml` runs the same bundle on a self-hosted
+runner labelled `[self-hosted, android-qualcomm]`. No SSH key or secret is
+involved. The build still happens on a GitHub-hosted runner; the self-hosted
+machine only downloads the bundle and runs it.
+
+Inputs: `transport` (`adb` when the runner is a host with the phone attached,
+`local` when the runner runs on the Android device itself), `lib_dir` (or set
+the repository variable `QNN_LIB_DIR`), optional `adb_serial`, and
+`collect_device_info` (off by default, see the confidentiality note above).
+
+Security: a self-hosted runner executes workflow code on your machine, so
+this workflow is manual-only and never runs on pull requests. Keep it that
+way, do not attach the runner to a repository that accepts untrusted forks'
+workflows, and run it as an unprivileged user.
+
+Not verified: whether the runner's `actions/download-artifact` and
+`upload-artifact` steps work on your platform (they need Node; they will not
+on a bionic-only environment without one). If they do not, build the bundle
+elsewhere, copy it over, and call `run-on-device.sh` directly.

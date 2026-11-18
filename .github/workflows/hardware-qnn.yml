@@ -1,33 +1,93 @@
 name: Qualcomm hardware
 
-# Opt-in only: runs on a self-hosted runner that has a Qualcomm target and
-# the QAIRT runtime installed. Never triggered by pushes or pull requests.
+# Runs the Android test bundle on a self-hosted runner that has a Qualcomm
+# Snapdragon device: runs-on [self-hosted, android-qualcomm].
+#
+# The code is compiled on a GitHub-hosted runner (see build-qdc.yml), so the
+# self-hosted machine only downloads and executes it. Because a self-hosted
+# runner executes whatever a workflow tells it to, this workflow is manual
+# only: it never runs on pull requests or on pushes.
+#
+# Where the runner lives decides `transport`:
+#   adb    the runner is a host machine with `adb` and the phone attached
+#   local  the runner runs on the Android device itself (bionic, aarch64)
 on:
   workflow_dispatch:
     inputs:
       lib_dir:
-        description: Absolute directory holding the QNN backend libraries
-        required: true
+        description: >-
+          Absolute directory on the device holding the QNN backend libraries.
+          Empty: use the repository variable QNN_LIB_DIR.
+        default: ""
+      transport:
+        description: How the runner reaches the device
+        type: choice
+        options: [adb, local]
+        default: adb
+      adb_serial:
+        description: adb serial (transport adb, several devices attached)
+        default: ""
+      collect_device_info:
+        description: >-
+          Record device model/build in the uploaded artifact (may be
+          confidential; artifacts of public repositories are public)
+        type: boolean
+        default: false
+      magnetar_ref:
+        description: Magnetar ref to build against
+        default: main
 
 permissions:
   contents: read
 
+concurrency:
+  group: hardware-qnn
+  cancel-in-progress: false
+
 jobs:
+  build:
+    uses: ./.github/workflows/build-qdc.yml
+    with:
+      magnetar_ref: ${{ inputs.magnetar_ref }}
+
   hardware:
-    runs-on: [self-hosted, qualcomm-hardware]
-    env:
-      MAGNETAR_QNN_HARDWARE: "1"
-      MAGNETAR_QNN_LIB_DIR: ${{ inputs.lib_dir }}
+    name: run on the device
+    needs: build
+    runs-on: [self-hosted, android-qualcomm]
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Download the bundle
+        uses: actions/download-artifact@v4
         with:
-          path: providers/qnn
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+          name: qnn-tests-aarch64-linux-android
+          path: bundle
+
+      - name: Run the bundle on the device
+        working-directory: bundle
+        env:
+          TRANSPORT: ${{ inputs.transport }}
+          DEVICE_INFO: ${{ inputs.collect_device_info && '1' || '0' }}
+          LIB_DIR: ${{ inputs.lib_dir || vars.QNN_LIB_DIR }}
+          ADB_SERIAL: ${{ inputs.adb_serial }}
+        run: |
+          test -n "$LIB_DIR" || { echo "::error::no lib_dir input and no QNN_LIB_DIR variable"; exit 1; }
+          chmod +x run-on-device.sh unit-tests hardware-tests
+          ./run-on-device.sh "$LIB_DIR" ${ADB_SERIAL:+"$ADB_SERIAL"}
+
+      - name: Summarize
+        if: always()
+        working-directory: bundle
+        run: |
+          {
+            echo "### Qualcomm hardware run"
+            for f in results/*/result.json; do echo '```json'; cat "$f"; echo '```'; done
+          } >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          repository: astorise/Magnetar
-          path: magnetar-checkout
-      - name: Place this crate inside the Magnetar checkout
-        run: mv providers/qnn magnetar-checkout/providers/qnn
-      - name: Discovery on real hardware
-        working-directory: magnetar-checkout
-        run: cargo test --manifest-path providers/qnn/Cargo.toml --test hardware -- --ignored --nocapture
+          name: qnn-hardware-results
+          path: bundle/results/
+          if-no-files-found: warn
+          retention-days: 14
